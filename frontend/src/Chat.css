@@ -1,0 +1,42 @@
+.chats {
+  width: 100%;
+  max-width: 700px;
+  overflow-y: auto;
+  padding: 8rem;
+  margin: 0 auto;
+}
+
+.userDiv {
+  display: flex;
+  justify-content: flex-end;
+  font-size: 1rem;
+}
+
+.gptDiv {
+  text-align: left;
+  font-size: 1rem;
+  line-height: 1.8rem;
+}
+
+.userMessage {
+  background-color: #323232;
+  padding: 10px 20px;
+  border-radius: 14px;
+  /* margin-left: 15rem; */
+  margin-left: auto;
+  max-width: 500px;
+  width: fit-content;
+}
+
+.hljs {
+  border-radius: 14px !important;
+}
+
+pre {
+  white-space: pre-wrap;
+}
+
+.userDiv,
+.gptDiv {
+  width: 100%; /* FIXES SCROLLBAR MOVEMENT */
+}
