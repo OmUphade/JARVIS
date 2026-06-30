@@ -18,6 +18,8 @@ function ChatWindow() {
   const [isOpen, setIsOpen] = useState(false);
 
   const getReply = async () => {
+    if (!prompt.trim()) return;
+    
     setLoading(true);
     setNewChat(false);
 
@@ -34,12 +36,17 @@ function ChatWindow() {
     };
 
     try {
-      const response = await fetch("http://localhost:8080/api/chat", options);
+      const response = await fetch("http://localhost:8080/api/v1/chat", options);
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
       const res = await response.json();
       console.log(res);
-      setReply(res.reply);
+      setReply(res.data.reply);
     } catch (err) {
-      console.log(err);
+      console.error("Fetch error:", err);
+      // Fallback response so the user sees an error in the chat
+      setReply("⚠️ Sorry, I couldn't connect to the backend server. Please check if your backend and MongoDB are running properly.");
     }
     setLoading(false);
   };

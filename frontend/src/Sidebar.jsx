@@ -17,9 +17,9 @@ function Sidebar() {
 
   const getAllThreads = async () => {
     try {
-      const response = await fetch("http://localhost:8080/api/thread");
+      const response = await fetch("http://localhost:8080/api/v1/thread");
       const res = await response.json();
-      const filteredData = res.map((thread) => ({
+      const filteredData = res.data.map((thread) => ({
         threadId: thread.threadId,
         title: thread.title,
       }));
@@ -47,11 +47,11 @@ function Sidebar() {
 
     try {
       const response = await fetch(
-        `http://localhost:8080/api/thread/${newThreadId}`
+        `http://localhost:8080/api/v1/thread/${newThreadId}`
       );
       const res = await response.json();
       console.log(res);
-      setPrevChats(res);
+      setPrevChats(res.data);
       setNewChat(false);
       setReply(null);
     } catch (err) {
@@ -62,7 +62,7 @@ function Sidebar() {
   const deleteThread = async (threadId) => {
     try {
       const response = await fetch(
-        `http://localhost:8080/api/thread/${threadId}`,
+        `http://localhost:8080/api/v1/thread/${threadId}`,
         { method: "DELETE" }
       );
       const res = await response.json();

@@ -1,28 +1,76 @@
 import express from "express";
-import "dotenv/config";
+import helmet from "helmet";
 import cors from "cors";
+import cookieParser from "cookie-parser";
 import mongoose from "mongoose";
+import { config } from "./config/config.js";
+import logger from "./utils/logger.js";
+import { sendSuccess, sendError } from "./utils/response.js";
 import ChatRoutes from "./routes/chat.js";
+import AuthRoutes from "./routes/auth.js";
 
 const app = express();
-const port = 8080;
-
-app.use(express.json());
-app.use(cors());
 
 const connectDB = async () => {
   try {
-    await mongoose.connect(process.env.MONGODB_URI);
-    console.log("Connected with database");
+    await mongoose.connect(config.mongodbUri);
+    logger.info("Connected to MongoDB successfully");
   } catch (error) {
-    console.error("MongoDB connection error:", error);
+    logger.error(`MongoDB connection error: ${error.message}`);
+    process.exit(1);
   }
 };
 
 connectDB();
 
-app.use("/api", ChatRoutes);
+// Security Middlewares
+app.use(helmet());
+app.use(
+  cors({
+    origin: ["http://localhost:5173", "http://127.0.0.1:5173"],
+    credentials: true,
+  })
+);
 
-app.listen(port, () => {
-  console.log(`Server running on port ${port}`);
+app.use(express.json());
+app.use(cookieParser());
+
+// Request logging middleware
+app.use((req, res, next) => {
+  const start = Date.now();
+  res.on("finish", () => {
+    const duration = Date.now() - start;
+    logger.info(
+      `${req.method} ${req.originalUrl} ${res.statusCode} - ${duration}ms`
+    );
+  });
+  next();
+});
+
+// Health check endpoint
+app.use("/api/v1/health", async (req, res) => {
+  const dbStatus = mongoose.connection.readyState === 1 ? "connected" : "disconnected";
+  const healthData = {
+    uptime: process.uptime(),
+    message: "OK",
+    timestamp: Date.now(),
+    services: {
+      database: dbStatus,
+    },
+  };
+  return sendSuccess(res, healthData);
+});
+
+// Version 1 Routes
+app.use("/api/v1/auth", AuthRoutes);
+app.use("/api/v1", ChatRoutes);
+
+// Global Error Handler
+app.use((err, req, res, next) => {
+  logger.error(`${err.message} - ${err.stack}`);
+  return sendError(res, "An unexpected error occurred on the server.", "INTERNAL_SERVER_ERROR", 500);
+});
+
+app.listen(config.port, () => {
+  logger.info(`Server running in ${config.nodeEnv} mode on port ${config.port}`);
 });

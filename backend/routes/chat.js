@@ -1,33 +1,32 @@
 import express from "express";
 import Thread from "../models/Thread.js";
+import Message from "../models/Message.js";
 import geminiAPIResponse from "../utils/ai.js";
+import { sendSuccess, sendError } from "../utils/response.js";
+import { requireAuth } from "../middleware/auth.js";
+import logger from "../utils/logger.js";
 
 const router = express.Router();
 
-// Test route
-router.post("/test", async (req, res) => {
-  try {
-    const thread = new Thread({
-      threadId: "xyz",
-      title: "testing New Thread",
-    });
+// Apply requireAuth middleware to protect all chat and thread routes
+router.use(requireAuth);
 
-    const response = await thread.save();
-    res.send(response);
-  } catch (error) {
-    console.error(error);
-    res.status(500).send("Failed to save in database");
-  }
-});
-
-// Fetch all threads
+// Fetch all threads for the logged-in user (non-deleted, sorted by updated time)
 router.get("/thread", async (req, res) => {
   try {
-    const threads = await Thread.find({});
-    res.json(threads);
+    const threads = await Thread.find({ userId: req.user.id, isDeleted: false })
+      .sort({ updatedAt: -1 });
+    
+    // Format response to match frontend expectations
+    const filteredThreads = threads.map(t => ({
+      threadId: t.threadId,
+      title: t.title,
+    }));
+
+    return sendSuccess(res, filteredThreads);
   } catch (error) {
-    console.log(error);
-    res.status(500).send("Failed to fetch threads");
+    logger.error(`Failed to fetch threads for user ${req.user.id}: ${error.message}`);
+    return sendError(res, "Failed to fetch threads", "THREAD_FETCH_ERROR", 500);
   }
 });
 
@@ -36,34 +35,53 @@ router.get("/thread/:threadId", async (req, res) => {
   const { threadId } = req.params;
 
   try {
-    const thread = await Thread.findOne({ threadId });
-
+    // Ensure thread belongs to the current user
+    const thread = await Thread.findOne({ threadId, userId: req.user.id, isDeleted: false });
     if (!thread) {
-      return res.status(404).json({ error: "Thread not found" });
+      return sendError(res, "Thread not found or access denied", "THREAD_NOT_FOUND", 404);
     }
 
-    res.json(thread.messages);
+    const messages = await Message.find({ threadId, isDeleted: false })
+      .sort({ createdAt: 1 });
+
+    const formattedMessages = messages.map(m => ({
+      role: m.role,
+      content: m.content,
+    }));
+
+    return sendSuccess(res, formattedMessages);
   } catch (error) {
-    console.log(error);
-    res.status(500).send("Failed to fetch chat");
+    logger.error(`Failed to fetch thread ${threadId} for user ${req.user.id}: ${error.message}`);
+    return sendError(res, "Failed to fetch chat", "CHAT_FETCH_ERROR", 500);
   }
 });
 
-// Delete a thread
+// Delete a thread (soft delete)
 router.delete("/thread/:threadId", async (req, res) => {
   const { threadId } = req.params;
 
   try {
-    const deletedThread = await Thread.findOneAndDelete({ threadId });
+    // Ensure thread belongs to current user
+    const thread = await Thread.findOneAndUpdate(
+      { threadId, userId: req.user.id, isDeleted: false },
+      { isDeleted: true, deletedAt: new Date() }
+    );
 
-    if (!deletedThread) {
-      return res.status(404).json({ error: "Thread not found" });
+    if (!thread) {
+      return sendError(res, "Thread not found or access denied", "THREAD_NOT_FOUND", 404);
     }
 
-    res.json({ success: "Thread deleted successfully" });
+    // Soft delete associated messages
+    await Message.updateMany(
+      { threadId, isDeleted: false },
+      { isDeleted: true, deletedAt: new Date() }
+    );
+
+    logger.info(`User ${req.user.id} soft deleted thread: ${threadId}`);
+    return sendSuccess(res, { message: "Thread deleted successfully" });
   } catch (error) {
-    console.log(error);
-    res.status(500).send("Failed to delete thread");
+    logger.error(`Failed to delete thread ${threadId} for user ${req.user.id}: ${error.message}`);
+    return sendError(res, "Failed to delete thread", "THREAD_DELETE_ERROR", 500);
   }
 });
 
@@ -72,37 +90,50 @@ router.post("/chat", async (req, res) => {
   const { threadId, message } = req.body;
 
   if (!threadId || !message) {
-    return res.status(400).json({ error: "Missing required fields" });
+    return sendError(res, "Missing required fields", "VALIDATION_ERROR", 400);
   }
 
   try {
-    let thread = await Thread.findOne({ threadId });
+    let thread = await Thread.findOne({ threadId, userId: req.user.id, isDeleted: false });
 
     if (!thread) {
-      // Create new thread
+      // Create new thread linked to logged-in user
       thread = new Thread({
         threadId,
-        title: message,
-        messages: [{ role: "user", content: message }],
+        userId: req.user.id,
+        title: message.length > 30 ? `${message.substring(0, 30)}...` : message,
       });
-    } else {
-      // Add user message
-      thread.messages.push({ role: "user", content: message });
+      await thread.save();
+      logger.info(`Created new thread ${threadId} for user ${req.user.id}`);
     }
+
+    // Save user message to DB
+    const userMsg = new Message({
+      threadId,
+      role: "user",
+      content: message,
+    });
+    await userMsg.save();
 
     // Get AI response
     const assistantReply = await geminiAPIResponse(message);
 
-    // Add AI response
-    thread.messages.push({ role: "assistant", content: assistantReply });
-    thread.updatedAt = Date.now();
+    // Save assistant message to DB
+    const assistantMsg = new Message({
+      threadId,
+      role: "assistant",
+      content: assistantReply,
+    });
+    await assistantMsg.save();
 
+    // Update thread timestamp
+    thread.updatedAt = new Date();
     await thread.save();
 
-    res.json({ reply: assistantReply });
+    return sendSuccess(res, { reply: assistantReply });
   } catch (error) {
-    console.log(error);
-    res.status(500).send("Something went wrong");
+    logger.error(`Chat route failed for user ${req.user.id}: ${error.message}`);
+    return sendError(res, "Something went wrong processing your request.", "CHAT_PROCESSING_ERROR", 500);
   }
 });
 
