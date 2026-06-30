@@ -4,9 +4,21 @@ import Message from "../models/Message.js";
 import geminiAPIResponse from "../utils/ai.js";
 import { sendSuccess, sendError } from "../utils/response.js";
 import { requireAuth } from "../middleware/auth.js";
+import { upload } from "../middleware/upload.js";
 import logger from "../utils/logger.js";
 
 const router = express.Router();
+
+// Middleware to handle file uploads safely and catch validation errors
+const handleUpload = (req, res, next) => {
+  upload.array("files", 5)(req, res, (err) => {
+    if (err) {
+      logger.error(`Multer upload error: ${err.message}`);
+      return sendError(res, err.message, "FILE_UPLOAD_ERROR", 400);
+    }
+    next();
+  });
+};
 
 // Apply requireAuth middleware to protect all chat and thread routes
 router.use(requireAuth);
@@ -85,8 +97,8 @@ router.delete("/thread/:threadId", async (req, res) => {
   }
 });
 
-// Chat route
-router.post("/chat", async (req, res) => {
+// Chat route supporting text and files (multimodal)
+router.post("/chat", handleUpload, async (req, res) => {
   const { threadId, message } = req.body;
 
   if (!threadId || !message) {
@@ -107,16 +119,30 @@ router.post("/chat", async (req, res) => {
       logger.info(`Created new thread ${threadId} for user ${req.user.id}`);
     }
 
+    // Process attachments from uploaded files
+    const attachments = [];
+    if (req.files && req.files.length > 0) {
+      for (const file of req.files) {
+        attachments.push({
+          fileUrl: `http://localhost:8080/uploads/${file.filename}`,
+          fileName: file.originalname,
+          mimeType: file.mimetype,
+          sizeBytes: file.size,
+        });
+      }
+    }
+
     // Save user message to DB
     const userMsg = new Message({
       threadId,
       role: "user",
       content: message,
+      attachments,
     });
     await userMsg.save();
 
     // Get AI response
-    const assistantReply = await geminiAPIResponse(message);
+    const assistantReply = await geminiAPIResponse(message, req.files);
 
     // Save assistant message to DB
     const assistantMsg = new Message({

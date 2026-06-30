@@ -1,42 +1,53 @@
+import { GoogleGenerativeAI } from "@google/generative-ai";
 import { config } from "../config/config.js";
+import fs from "fs";
+import logger from "./logger.js";
 
-const geminiAPIResponse = async (message) => {
+const genAI = new GoogleGenerativeAI(config.geminiApiKey);
+
+/**
+ * Helper to convert local file to GenerativePart object
+ * @param {string} path Local file path
+ * @param {string} mimeType File MIME type
+ * @returns {Object} GenerativePart for Gemini
+ */
+const fileToGenerativePart = (path, mimeType) => {
+  return {
+    inlineData: {
+      data: Buffer.from(fs.readFileSync(path)).toString("base64"),
+      mimeType,
+    },
+  };
+};
+
+/**
+ * Send prompts and optional files to Gemini
+ * @param {string} message Text message prompt
+ * @param {Array<Object>} files Array of uploaded Express file objects
+ * @returns {Promise<string>} Gemini response content
+ */
+const geminiAPIResponse = async (message, files = []) => {
   try {
-    const response = await fetch(
-      "https://generativelanguage.googleapis.com/v1beta/openai/chat/completions",
-      {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${config.geminiApiKey}`,
-        },
-        body: JSON.stringify({
-          model: "gemini-2.0-flash",
-          messages: [
-            { role: "system", content: "You are a helpful assistant." },
-            { role: "user", content: message },
-          ],
-        }),
-      }
-    );
+    const model = genAI.getGenerativeModel({ model: "gemini-2.0-flash" });
 
-    const data = await response.json();
-    
-    // Check if the API returned an error
-    if (!response.ok) {
-      if (data.error && data.error.message) {
-        return `API Error (${response.status}): ${data.error.message}`;
-      } else if (Array.isArray(data) && data[0]?.error?.message) {
-        return `API Error (${response.status}): ${data[0].error.message}`;
+    const contents = [message];
+
+    // Append files as parts if any exist
+    for (const file of files) {
+      if (fs.existsSync(file.path)) {
+        const filePart = fileToGenerativePart(file.path, file.mimetype);
+        contents.push(filePart);
       }
-      return `API Error (${response.status}): Exceeded quota or service unavailable.`;
     }
 
-    const reply = data?.choices?.[0]?.message?.content;
+    const result = await model.generateContent(contents);
+    const response = await result.response;
+    const reply = response.text();
+
     return reply || "No response from Gemini.";
   } catch (error) {
-    console.error(error);
-    return "Network error or failure reaching the Gemini API.";
+    logger.error(`Gemini API Error: ${error.message}`);
+    return `API Error: ${error.message}`;
   }
 };
 
