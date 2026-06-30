@@ -1,40 +1,36 @@
 import mongoose, { Schema } from "mongoose";
 
-const MessageSchema = new Schema({
-  role: {
-    type: String,
-    enum: ["user", "assistant"],
-    required: true,
+const ThreadSchema = new Schema(
+  {
+    userId: {
+      type: Schema.Types.ObjectId,
+      ref: "User",
+      required: true,
+      index: true,
+    },
+    threadId: {
+      type: String,
+      required: true,
+      unique: true,
+      index: true,
+    },
+    title: {
+      type: String,
+      default: "New Chat",
+    },
+    deletedAt: {
+      type: Date,
+      default: null,
+    },
+    isDeleted: {
+      type: Boolean,
+      default: false,
+      index: true,
+    },
   },
-  content: {
-    type: String,
-    required: true,
-  },
-  timestamp: {
-    type: Date,
-    default: Date.now,
-  },
-});
-
-const ThreadSchema = new Schema({
-  threadId: {
-    type: String,
-    required: true,
-    unique: true,
-  },
-  title: {
-    type: String,
-    default: "new Chat",
-  },
-  messages: [MessageSchema],
-  createdAt: {
-    type: Date,
-    default: Date.now,
-  },
-  updatedAt: {
-    type: Date,
-    default: Date.now,
-  },
-});
+  {
+    timestamps: true,
+  }
+);
 
 export default mongoose.model("Thread", ThreadSchema);
