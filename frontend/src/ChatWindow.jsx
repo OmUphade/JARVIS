@@ -8,67 +8,100 @@ function ChatWindow() {
   const {
     prompt,
     setPrompt,
-    reply,
-    setReply,
     currThreadId,
     setPrevChats,
     setNewChat,
+    streamingReply,
+    setStreamingReply,
   } = useContext(MyContext);
   const [loading, setLoading] = useState(false);
   const [isOpen, setIsOpen] = useState(false);
-
+ 
   const getReply = async () => {
     if (!prompt.trim()) return;
     
-    setLoading(true);
+    const userPrompt = prompt;
+    setPrompt(""); // Clear input box immediately for responsive feel
     setNewChat(false);
+    setLoading(true);
 
-    console.log("message ", prompt, " threadId ", currThreadId);
-    const options = {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        message: prompt,
-        threadId: currThreadId,
-      }),
-    };
+    // Append user message immediately to the UI chat
+    setPrevChats((prev) => [
+      ...prev,
+      { role: "user", content: userPrompt }
+    ]);
+
+    const formData = new FormData();
+    formData.append("threadId", currThreadId);
+    formData.append("message", userPrompt);
 
     try {
-      const response = await fetch("http://localhost:8080/api/v1/chat", options);
+      const response = await fetch("http://localhost:8080/api/v1/chat/stream", {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${localStorage.getItem("accessToken")}`
+        },
+        body: formData,
+      });
+
       if (!response.ok) {
         throw new Error(`HTTP error! status: ${response.status}`);
       }
-      const res = await response.json();
-      console.log(res);
-      setReply(res.data.reply);
-    } catch (err) {
-      console.error("Fetch error:", err);
-      // Fallback response so the user sees an error in the chat
-      setReply("⚠️ Sorry, I couldn't connect to the backend server. Please check if your backend and MongoDB are running properly.");
-    }
-    setLoading(false);
-  };
 
-  //Append new chat to prevChats
-  useEffect(() => {
-    if (prompt && reply) {
-      setPrevChats((prevChats) => [
-        ...prevChats,
-        {
-          role: "user",
-          content: prompt,
-        },
+      setLoading(false); // Disable spinner once stream begins
+
+      const reader = response.body.getReader();
+      const decoder = new TextDecoder();
+      let accumulatedReply = "";
+      setStreamingReply("");
+
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+
+        const chunk = decoder.decode(value);
+        const lines = chunk.split("\n");
+        for (const line of lines) {
+          if (line.startsWith("data: ")) {
+            const dataStr = line.replace("data: ", "").trim();
+            if (dataStr === "[DONE]") break;
+
+            try {
+              const parsed = JSON.parse(dataStr);
+              if (parsed.text) {
+                accumulatedReply += parsed.text;
+                setStreamingReply(accumulatedReply);
+              } else if (parsed.error) {
+                accumulatedReply += `\n\n⚠️ ${parsed.error}`;
+                setStreamingReply(accumulatedReply);
+              }
+            } catch (e) {
+              // Ignore partial JSON parse errors
+            }
+          }
+        }
+      }
+
+      // Commit full assistant reply to memory once finished
+      setPrevChats((prev) => [
+        ...prev,
+        { role: "assistant", content: accumulatedReply }
+      ]);
+      setStreamingReply("");
+
+    } catch (err) {
+      console.error("Streaming error:", err);
+      setLoading(false);
+      setPrevChats((prev) => [
+        ...prev,
         {
           role: "assistant",
-          content: reply,
-        },
+          content: "⚠️ Sorry, I couldn't connect to the backend server. Please check if your backend and database are running properly."
+        }
       ]);
+      setStreamingReply("");
     }
-
-    setPrompt("");
-  }, [reply]);
+  };
 
   const handleProfileClick = () => {
     setIsOpen(!isOpen);

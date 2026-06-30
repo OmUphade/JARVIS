@@ -17,7 +17,11 @@ function Sidebar() {
 
   const getAllThreads = async () => {
     try {
-      const response = await fetch("http://localhost:8080/api/v1/thread");
+      const response = await fetch("http://localhost:8080/api/v1/thread", {
+        headers: {
+          Authorization: `Bearer ${localStorage.getItem("accessToken")}`,
+        },
+      });
       const res = await response.json();
       const filteredData = res.data.map((thread) => ({
         threadId: thread.threadId,
@@ -47,7 +51,12 @@ function Sidebar() {
 
     try {
       const response = await fetch(
-        `http://localhost:8080/api/v1/thread/${newThreadId}`
+        `http://localhost:8080/api/v1/thread/${newThreadId}`,
+        {
+          headers: {
+            Authorization: `Bearer ${localStorage.getItem("accessToken")}`,
+          },
+        }
       );
       const res = await response.json();
       console.log(res);
@@ -63,7 +72,12 @@ function Sidebar() {
     try {
       const response = await fetch(
         `http://localhost:8080/api/v1/thread/${threadId}`,
-        { method: "DELETE" }
+        {
+          method: "DELETE",
+          headers: {
+            Authorization: `Bearer ${localStorage.getItem("accessToken")}`,
+          },
+        }
       );
       const res = await response.json();
       console.log(res);

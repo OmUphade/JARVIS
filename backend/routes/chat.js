@@ -1,7 +1,7 @@
 import express from "express";
 import Thread from "../models/Thread.js";
 import Message from "../models/Message.js";
-import geminiAPIResponse from "../utils/ai.js";
+import geminiAPIResponse, { geminiAPIStreamResponse } from "../utils/ai.js";
 import { sendSuccess, sendError } from "../utils/response.js";
 import { requireAuth } from "../middleware/auth.js";
 import { upload } from "../middleware/upload.js";
@@ -160,6 +160,87 @@ router.post("/chat", handleUpload, async (req, res) => {
   } catch (error) {
     logger.error(`Chat route failed for user ${req.user.id}: ${error.message}`);
     return sendError(res, "Something went wrong processing your request.", "CHAT_PROCESSING_ERROR", 500);
+  }
+});
+
+// Chat stream route (SSE)
+router.post("/chat/stream", handleUpload, async (req, res) => {
+  const { threadId, message } = req.body;
+
+  if (!threadId || !message) {
+    return sendError(res, "Missing required fields", "VALIDATION_ERROR", 400);
+  }
+
+  try {
+    let thread = await Thread.findOne({ threadId, userId: req.user.id, isDeleted: false });
+
+    if (!thread) {
+      thread = new Thread({
+        threadId,
+        userId: req.user.id,
+        title: message.length > 30 ? `${message.substring(0, 30)}...` : message,
+      });
+      await thread.save();
+    }
+
+    const attachments = [];
+    if (req.files && req.files.length > 0) {
+      for (const file of req.files) {
+        attachments.push({
+          fileUrl: `http://localhost:8080/uploads/${file.filename}`,
+          fileName: file.originalname,
+          mimeType: file.mimetype,
+          sizeBytes: file.size,
+        });
+      }
+    }
+
+    // Save user message to DB
+    const userMsg = new Message({
+      threadId,
+      role: "user",
+      content: message,
+      attachments,
+    });
+    await userMsg.save();
+
+    // Set headers for Server-Sent Events (SSE)
+    res.setHeader("Content-Type", "text/event-stream");
+    res.setHeader("Cache-Control", "no-cache");
+    res.setHeader("Connection", "keep-alive");
+    res.setHeader("X-Accel-Buffering", "no"); // Disable buffering for Nginx if proxying
+
+    const resultStream = await geminiAPIStreamResponse(message, req.files);
+    let fullReply = "";
+
+    for await (const chunk of resultStream.stream) {
+      const text = chunk.text();
+      fullReply += text;
+      res.write(`data: ${JSON.stringify({ text })}\n\n`);
+    }
+
+    // Save assistant message to DB
+    const assistantMsg = new Message({
+      threadId,
+      role: "assistant",
+      content: fullReply,
+    });
+    await assistantMsg.save();
+
+    // Update thread timestamp
+    thread.updatedAt = new Date();
+    await thread.save();
+
+    res.write("data: [DONE]\n\n");
+    res.end();
+  } catch (error) {
+    logger.error(`Streaming failed for user ${req.user.id}: ${error.message}`);
+    // If headers are already sent, we cannot send standard json error response. We write custom error event
+    if (res.headersSent) {
+      res.write(`data: ${JSON.stringify({ error: "Streaming disconnected unexpectedly." })}\n\n`);
+      return res.end();
+    }
+    return sendError(res, "Something went wrong in streaming your request.", "STREAM_PROCESSING_ERROR", 500);
   }
 });
 

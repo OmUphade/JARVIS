@@ -51,4 +51,24 @@ const geminiAPIResponse = async (message, files = []) => {
   }
 };
 
+/**
+ * Generate stream response from Gemini API
+ * @param {string} message Text message prompt
+ * @param {Array<Object>} files Uploaded files
+ * @returns {Promise<Object>} Mapped result stream from Gemini
+ */
+export const geminiAPIStreamResponse = async (message, files = []) => {
+  const model = genAI.getGenerativeModel({ model: "gemini-2.0-flash" });
+
+  const contents = [message];
+
+  for (const file of files) {
+    if (fs.existsSync(file.path)) {
+      contents.push(fileToGenerativePart(file.path, file.mimetype));
+    }
+  }
+
+  return model.generateContentStream(contents);
+};
+
 export default geminiAPIResponse;
