@@ -23,7 +23,20 @@ const handleUpload = (req, res, next) => {
 // Apply requireAuth middleware to protect all chat and thread routes
 router.use(requireAuth);
 
-// Fetch all threads for the logged-in user (non-deleted, sorted by updated time)
+/**
+ * @openapi
+ * /thread:
+ *   get:
+ *     summary: Retrieve thread list for logged-in user
+ *     tags: [Threads]
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: A JSON array of threads.
+ *       401:
+ *         description: Unauthorized.
+ */
 router.get("/thread", async (req, res) => {
   try {
     const threads = await Thread.find({ userId: req.user.id, isDeleted: false })
@@ -42,7 +55,26 @@ router.get("/thread", async (req, res) => {
   }
 });
 
-// Fetch a thread's messages
+/**
+ * @openapi
+ * /thread/{threadId}:
+ *   get:
+ *     summary: Get message history for a specific thread
+ *     tags: [Threads]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: threadId
+ *         required: true
+ *         schema:
+ *           type: string
+ *     responses:
+ *       200:
+ *         description: List of message exchanges.
+ *       404:
+ *         description: Thread not found.
+ */
 router.get("/thread/:threadId", async (req, res) => {
   const { threadId } = req.params;
 
@@ -69,7 +101,26 @@ router.get("/thread/:threadId", async (req, res) => {
   }
 });
 
-// Delete a thread (soft delete)
+/**
+ * @openapi
+ * /thread/{threadId}:
+ *   delete:
+ *     summary: Soft delete a specific thread
+ *     tags: [Threads]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: threadId
+ *         required: true
+ *         schema:
+ *           type: string
+ *     responses:
+ *       200:
+ *         description: Thread deleted successfully.
+ *       404:
+ *         description: Thread not found.
+ */
 router.delete("/thread/:threadId", async (req, res) => {
   const { threadId } = req.params;
 
@@ -98,7 +149,37 @@ router.delete("/thread/:threadId", async (req, res) => {
   }
 });
 
-// Chat route supporting text and files (multimodal)
+/**
+ * @openapi
+ * /chat:
+ *   post:
+ *     summary: Send text prompts and attachments to Gemini API (non-stream)
+ *     tags: [Chat]
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         multipart/form-data:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - threadId
+ *               - message
+ *             properties:
+ *               threadId:
+ *                 type: string
+ *               message:
+ *                 type: string
+ *               files:
+ *                 type: array
+ *                 items:
+ *                   type: string
+ *                   format: binary
+ *     responses:
+ *       200:
+ *         description: Returns assistant text reply.
+ */
 router.post("/chat", handleUpload, async (req, res) => {
   const { threadId, message } = req.body;
 
@@ -164,7 +245,37 @@ router.post("/chat", handleUpload, async (req, res) => {
   }
 });
 
-// Chat stream route (SSE)
+/**
+ * @openapi
+ * /chat/stream:
+ *   post:
+ *     summary: Send text prompts and attachments to Gemini and stream tokens back (SSE)
+ *     tags: [Chat]
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         multipart/form-data:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - threadId
+ *               - message
+ *             properties:
+ *               threadId:
+ *                 type: string
+ *               message:
+ *                 type: string
+ *               files:
+ *                 type: array
+ *                 items:
+ *                   type: string
+ *                   format: binary
+ *     responses:
+ *       200:
+ *         description: EventStream token output.
+ */
 router.post("/chat/stream", handleUpload, async (req, res) => {
   const { threadId, message } = req.body;
 

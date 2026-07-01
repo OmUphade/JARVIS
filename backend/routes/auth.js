@@ -20,7 +20,40 @@ const getCookieOptions = (isProduction) => ({
   maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
 });
 
-// POST /register
+/**
+ * @openapi
+ * /auth/register:
+ *   post:
+ *     summary: Register a new user profile
+ *     tags: [Authentication]
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - name
+ *               - email
+ *               - password
+ *             properties:
+ *               name:
+ *                 type: string
+ *                 example: Jane Doe
+ *               email:
+ *                 type: string
+ *                 example: jane@example.com
+ *               password:
+ *                 type: string
+ *                 example: securePassword123
+ *     responses:
+ *       201:
+ *         description: User profile created successfully.
+ *       400:
+ *         description: Validation error.
+ *       409:
+ *         description: Email already in use.
+ */
 router.post("/register", async (req, res) => {
   const { name, email, password } = req.body;
 
@@ -59,7 +92,34 @@ router.post("/register", async (req, res) => {
   }
 });
 
-// POST /login
+/**
+ * @openapi
+ * /auth/login:
+ *   post:
+ *     summary: Login user and issue session token
+ *     tags: [Authentication]
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - email
+ *               - password
+ *             properties:
+ *               email:
+ *                 type: string
+ *                 example: jane@example.com
+ *               password:
+ *                 type: string
+ *                 example: securePassword123
+ *     responses:
+ *       200:
+ *         description: Login successful. Sets cookie with refresh token and returns access token.
+ *       401:
+ *         description: Invalid credentials.
+ */
 router.post("/login", async (req, res) => {
   const { email, password } = req.body;
 
@@ -102,7 +162,16 @@ router.post("/login", async (req, res) => {
   }
 });
 
-// POST /logout
+/**
+ * @openapi
+ * /auth/logout:
+ *   post:
+ *     summary: Log out user and clear session cookie
+ *     tags: [Authentication]
+ *     responses:
+ *       200:
+ *         description: Logged out successfully.
+ */
 router.post("/logout", (req, res) => {
   try {
     // Clear cookies
@@ -118,7 +187,18 @@ router.post("/logout", (req, res) => {
   }
 });
 
-// POST /refresh
+/**
+ * @openapi
+ * /auth/refresh:
+ *   post:
+ *     summary: Rotate tokens using session cookies
+ *     tags: [Authentication]
+ *     responses:
+ *       200:
+ *         description: Returns new access token and resets refresh cookie.
+ *       401:
+ *         description: Refresh token invalid or expired.
+ */
 router.post("/refresh", async (req, res) => {
   try {
     const refreshToken = req.cookies?.refreshToken;

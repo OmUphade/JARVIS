@@ -3,11 +3,15 @@ import helmet from "helmet";
 import cors from "cors";
 import cookieParser from "cookie-parser";
 import mongoose from "mongoose";
+import swaggerJSDoc from "swagger-jsdoc";
+import swaggerUi from "swagger-ui-express";
 import { config } from "./config/config.js";
 import logger from "./utils/logger.js";
 import { sendSuccess, sendError } from "./utils/response.js";
 import ChatRoutes from "./routes/chat.js";
 import AuthRoutes from "./routes/auth.js";
+import taskQueue from "./queues/taskQueue.js";
+import "./workers/taskWorker.js"; // Initialize background worker
 
 const app = express();
 
@@ -21,7 +25,10 @@ const connectDB = async () => {
   }
 };
 
-connectDB();
+connectDB().then(() => {
+  // Trigger soft delete cleanup task on startup
+  taskQueue.add("cleanup-soft-deleted", {});
+});
 
 // Security Middlewares
 app.use(helmet());
@@ -61,6 +68,36 @@ app.use("/api/v1/health", async (req, res) => {
   };
   return sendSuccess(res, healthData);
 });
+
+// Swagger API Documentation Config
+const swaggerOptions = {
+  definition: {
+    openapi: "3.0.0",
+    info: {
+      title: "JARVIS Production API Documentation",
+      version: "1.0.0",
+      description: "Complete API specification for authentication, user conversations, streaming, and audit features.",
+    },
+    servers: [
+      {
+        url: "http://localhost:8080/api/v1",
+      },
+    ],
+    components: {
+      securitySchemes: {
+        bearerAuth: {
+          type: "http",
+          scheme: "bearer",
+          bearerFormat: "JWT",
+        },
+      },
+    },
+  },
+  apis: ["./routes/*.js"],
+};
+
+const swaggerSpec = swaggerJSDoc(swaggerOptions);
+app.use("/api/v1/docs", swaggerUi.serve, swaggerUi.setup(swaggerSpec));
 
 // Version 1 Routes
 app.use("/api/v1/auth", AuthRoutes);
