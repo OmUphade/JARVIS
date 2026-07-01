@@ -18,6 +18,8 @@ function ChatWindow() {
   const [isOpen, setIsOpen] = useState(false);
   const [selectedFiles, setSelectedFiles] = useState([]);
 
+  const API_URL = import.meta.env.VITE_API_URL || "http://localhost:8080/api/v1";
+
   const handleFileChange = (e) => {
     if (e.target.files) {
       const filesArray = Array.from(e.target.files);
@@ -62,7 +64,7 @@ function ChatWindow() {
     });
 
     try {
-      const response = await fetch("http://localhost:8080/api/v1/chat/stream", {
+      const response = await fetch(`${API_URL}/chat/stream`, {
         method: "POST",
         headers: {
           Authorization: `Bearer ${localStorage.getItem("accessToken")}`
@@ -135,7 +137,7 @@ function ChatWindow() {
 
   const handleLogout = async () => {
     try {
-      await fetch("http://localhost:8080/api/v1/auth/logout", {
+      await fetch(`${API_URL}/auth/logout`, {
         method: "POST",
       });
     } catch (err) {

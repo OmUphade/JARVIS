@@ -18,9 +18,11 @@ function Sidebar() {
   const [searchQuery, setSearchQuery] = useState("");
   const [visibleCount, setVisibleCount] = useState(15); // Simple pagination state
 
+  const API_URL = import.meta.env.VITE_API_URL || "http://localhost:8080/api/v1";
+
   const getAllThreads = async () => {
     try {
-      const response = await fetch("http://localhost:8080/api/v1/thread", {
+      const response = await fetch(`${API_URL}/thread`, {
         headers: {
           Authorization: `Bearer ${localStorage.getItem("accessToken")}`,
         },
@@ -53,7 +55,7 @@ function Sidebar() {
 
     try {
       const response = await fetch(
-        `http://localhost:8080/api/v1/thread/${newThreadId}`,
+        `${API_URL}/thread/${newThreadId}`,
         {
           headers: {
             Authorization: `Bearer ${localStorage.getItem("accessToken")}`,
@@ -73,7 +75,7 @@ function Sidebar() {
   const deleteThread = async (threadId) => {
     try {
       const response = await fetch(
-        `http://localhost:8080/api/v1/thread/${threadId}`,
+        `${API_URL}/thread/${threadId}`,
         {
           method: "DELETE",
           headers: {

@@ -9,14 +9,16 @@ function Auth({ onAuthSuccess }) {
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
 
+  const API_URL = import.meta.env.VITE_API_URL || "http://localhost:8080/api/v1";
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError("");
     setLoading(true);
 
     const url = isLogin
-      ? "http://localhost:8080/api/v1/auth/login"
-      : "http://localhost:8080/api/v1/auth/register";
+      ? `${API_URL}/auth/login`
+      : `${API_URL}/auth/register`;
 
     const payload = isLogin
       ? { email, password }
