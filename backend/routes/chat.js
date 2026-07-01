@@ -203,10 +203,11 @@ router.post("/chat", handleUpload, async (req, res) => {
 
     // Process attachments from uploaded files
     const attachments = [];
+    const baseUrl = process.env.BASE_URL || `${req.protocol}://${req.get("host")}`;
     if (req.files && req.files.length > 0) {
       for (const file of req.files) {
         attachments.push({
-          fileUrl: `http://localhost:8080/uploads/${file.filename}`,
+          fileUrl: `${baseUrl}/uploads/${file.filename}`,
           fileName: file.originalname,
           mimeType: file.mimetype,
           sizeBytes: file.size,
@@ -296,10 +297,11 @@ router.post("/chat/stream", handleUpload, async (req, res) => {
     }
 
     const attachments = [];
+    const baseUrl = process.env.BASE_URL || `${req.protocol}://${req.get("host")}`;
     if (req.files && req.files.length > 0) {
       for (const file of req.files) {
         attachments.push({
-          fileUrl: `http://localhost:8080/uploads/${file.filename}`,
+          fileUrl: `${baseUrl}/uploads/${file.filename}`,
           fileName: file.originalname,
           mimeType: file.mimetype,
           sizeBytes: file.size,

@@ -7,11 +7,20 @@ const redisUrl = config.cloudinaryUrl || process.env.REDIS_URL || "redis://127.0
 export let isRedisAvailable = false;
 export let redisConnection = null;
 
+let loggedError = false;
+
 try {
   redisConnection = new Redis(redisUrl, {
     maxRetriesPerRequest: null,
     enableReadyCheck: false,
     connectTimeout: 2000, // 2 seconds timeout to fail fast locally
+    retryStrategy(times) {
+      if (times > 3) {
+        // End reconnecting to prevent infinite warning loops
+        return null;
+      }
+      return Math.min(times * 200, 2000);
+    },
   });
 
   redisConnection.on("connect", () => {
@@ -21,7 +30,10 @@ try {
 
   redisConnection.on("error", (err) => {
     isRedisAvailable = false;
-    logger.warn(`Redis connection failed (using in-memory fallback): ${err.message}`);
+    if (!loggedError) {
+      logger.warn(`Redis connection failed (using in-memory fallback): ${err.message}`);
+      loggedError = true;
+    }
   });
 } catch (e) {
   isRedisAvailable = false;
