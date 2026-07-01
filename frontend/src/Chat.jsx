@@ -18,7 +18,28 @@ function Chat() {
             key={idx}
           >
             {chat.role === "user" ? (
-              <p className="userMessage">{chat.content}</p>
+              <div className="userMessageContainer">
+                {chat.attachments && chat.attachments.length > 0 && (
+                  <div className="messageAttachments">
+                    {chat.attachments.map((att, aIdx) => (
+                      <div key={aIdx} className="messageAttachmentItem">
+                        {att.mimeType.startsWith("image/") ? (
+                          <img src={att.fileUrl} alt={att.fileName} className="attachmentImg" />
+                        ) : att.mimeType.startsWith("audio/") ? (
+                          <audio src={att.fileUrl} controls className="attachmentAudio" />
+                        ) : att.mimeType.startsWith("video/") ? (
+                          <video src={att.fileUrl} controls className="attachmentVideo" />
+                        ) : (
+                          <a href={att.fileUrl} target="_blank" rel="noopener noreferrer" className="attachmentFileLink">
+                            <i className="fa-solid fa-file-lines"></i> {att.fileName}
+                          </a>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                )}
+                {chat.content && <p className="userMessage">{chat.content}</p>}
+              </div>
             ) : (
               <ReactMarkdown rehypePlugins={[rehypeHighlight]}>
                 {chat.content}

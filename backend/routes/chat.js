@@ -59,6 +59,7 @@ router.get("/thread/:threadId", async (req, res) => {
     const formattedMessages = messages.map(m => ({
       role: m.role,
       content: m.content,
+      attachments: m.attachments || [],
     }));
 
     return sendSuccess(res, formattedMessages);

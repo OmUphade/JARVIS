@@ -1,7 +1,7 @@
 import "./ChatWindow.css";
 import Chat from "./Chat.jsx";
 import { MyContext } from "./MyContext.jsx";
-import { useContext, useState, useEffect } from "react";
+import { useContext, useState } from "react";
 import { ScaleLoader } from "react-spinners";
 
 function ChatWindow() {
@@ -16,24 +16,50 @@ function ChatWindow() {
   } = useContext(MyContext);
   const [loading, setLoading] = useState(false);
   const [isOpen, setIsOpen] = useState(false);
- 
+  const [selectedFiles, setSelectedFiles] = useState([]);
+
+  const handleFileChange = (e) => {
+    if (e.target.files) {
+      const filesArray = Array.from(e.target.files);
+      setSelectedFiles((prev) => [...prev, ...filesArray]);
+    }
+  };
+
+  const removeFile = (index) => {
+    setSelectedFiles((prev) => prev.filter((_, i) => i !== index));
+  };
+
   const getReply = async () => {
-    if (!prompt.trim()) return;
+    if (!prompt.trim() && selectedFiles.length === 0) return;
     
     const userPrompt = prompt;
+    const filesToSend = [...selectedFiles];
+    
     setPrompt(""); // Clear input box immediately for responsive feel
+    setSelectedFiles([]); // Clear previews
     setNewChat(false);
     setLoading(true);
+
+    // Create attachments metadata array for user message rendering immediately
+    const attachmentsPreview = filesToSend.map(file => ({
+      fileName: file.name,
+      mimeType: file.type,
+      fileUrl: URL.createObjectURL(file), // Local temporary preview object URL
+      sizeBytes: file.size
+    }));
 
     // Append user message immediately to the UI chat
     setPrevChats((prev) => [
       ...prev,
-      { role: "user", content: userPrompt }
+      { role: "user", content: userPrompt, attachments: attachmentsPreview }
     ]);
 
     const formData = new FormData();
     formData.append("threadId", currThreadId);
     formData.append("message", userPrompt);
+    filesToSend.forEach((file) => {
+      formData.append("files", file);
+    });
 
     try {
       const response = await fetch("http://localhost:8080/api/v1/chat/stream", {
@@ -107,6 +133,18 @@ function ChatWindow() {
     setIsOpen(!isOpen);
   };
 
+  const handleLogout = async () => {
+    try {
+      await fetch("http://localhost:8080/api/v1/auth/logout", {
+        method: "POST",
+      });
+    } catch (err) {
+      console.error("Logout failed:", err);
+    }
+    localStorage.removeItem("accessToken");
+    window.location.reload();
+  };
+
   return (
     <div className="chatWindow">
       <div className="navbar">
@@ -122,28 +160,51 @@ function ChatWindow() {
       {isOpen && (
         <div className="dropDown">
           <div className="dropDownItem">
-            <i class="fa-solid fa-gear"></i> Settings
+            <i className="fa-solid fa-gear"></i> Settings
           </div>
           <div className="dropDownItem">
-            <i class="fa-solid fa-cloud-arrow-up"></i> Upgrade plan
+            <i className="fa-solid fa-cloud-arrow-up"></i> Upgrade plan
           </div>
-          <div className="dropDownItem">
-            <i class="fa-solid fa-arrow-right-from-bracket"></i> Log out
+          <div className="dropDownItem" onClick={handleLogout}>
+            <i className="fa-solid fa-arrow-right-from-bracket"></i> Log out
           </div>
         </div>
       )}
+      
       <Chat></Chat>
 
       <ScaleLoader color="#fff" loading={loading}></ScaleLoader>
 
       <div className="chatInput">
+        {selectedFiles.length > 0 && (
+          <div className="filePreviews">
+            {selectedFiles.map((file, idx) => (
+              <div key={idx} className="previewItem">
+                <i className="fa-solid fa-file-arrow-up fileIcon"></i>
+                <span className="previewName">{file.name}</span>
+                <i className="fa-solid fa-xmark removeFile" onClick={() => removeFile(idx)}></i>
+              </div>
+            ))}
+          </div>
+        )}
+
         <div className="inputBox">
+          <label htmlFor="file-upload" className="clipIcon">
+            <i className="fa-solid fa-paperclip"></i>
+          </label>
           <input
-            placeholder="Ask anything"
+            id="file-upload"
+            type="file"
+            multiple
+            style={{ display: "none" }}
+            onChange={handleFileChange}
+          />
+          <input
+            placeholder="Ask anything (image, audio, video)..."
             value={prompt}
             onChange={(e) => setPrompt(e.target.value)}
             onKeyDown={(e) => (e.key === "Enter" ? getReply() : "")}
-          ></input>
+          />
           <div id="submit" onClick={getReply}>
             <i className="fa-solid fa-paper-plane"></i>
           </div>

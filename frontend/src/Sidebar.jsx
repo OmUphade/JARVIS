@@ -1,5 +1,5 @@
 import "./Sidebar.css";
-import { useContext, useEffect } from "react";
+import { useContext, useEffect, useState } from "react";
 import { MyContext } from "./MyContext.jsx";
 import { v1 as uuidv1 } from "uuid";
 
@@ -15,6 +15,9 @@ function Sidebar() {
     setPrevChats,
   } = useContext(MyContext);
 
+  const [searchQuery, setSearchQuery] = useState("");
+  const [visibleCount, setVisibleCount] = useState(15); // Simple pagination state
+
   const getAllThreads = async () => {
     try {
       const response = await fetch("http://localhost:8080/api/v1/thread", {
@@ -27,7 +30,6 @@ function Sidebar() {
         threadId: thread.threadId,
         title: thread.title,
       }));
-      //console.log(filteredData);
       setAllThreads(filteredData);
     } catch (err) {
       console.log(err);
@@ -82,7 +84,6 @@ function Sidebar() {
       const res = await response.json();
       console.log(res);
 
-      //updated threads re-render
       setAllThreads((prev) =>
         prev.filter((thread) => thread.threadId !== threadId)
       );
@@ -95,6 +96,14 @@ function Sidebar() {
     }
   };
 
+  // Local thread search filter
+  const filteredThreads = allThreads?.filter((thread) =>
+    thread.title.toLowerCase().includes(searchQuery.toLowerCase())
+  ) || [];
+
+  // Paginated thread subset
+  const paginatedThreads = filteredThreads.slice(0, visibleCount);
+
   return (
     <section className="sidebar">
       <button onClick={createNewChat}>
@@ -102,29 +111,51 @@ function Sidebar() {
           src="src/assets/jarvis6.png"
           alt="Jarvis logo"
           className="logo"
-        ></img>
+        />
         <span>
           <i className="fa-solid fa-pen-to-square"></i>
         </span>
       </button>
 
+      {/* Sidebar search bar */}
+      <div className="searchBarContainer">
+        <i className="fa-solid fa-magnifying-glass searchIcon"></i>
+        <input
+          type="text"
+          placeholder="Search chats..."
+          value={searchQuery}
+          onChange={(e) => setSearchQuery(e.target.value)}
+          className="sidebarSearchInput"
+        />
+      </div>
+
       <ul className="history">
-        {allThreads?.map((thread, idx) => (
+        {paginatedThreads.map((thread, idx) => (
           <li
             key={idx}
             onClick={(e) => changeThread(thread.threadId)}
             className={thread.threadId === currThreadId ? "highlighted" : " "}
           >
-            {thread.title}
+            <span className="threadTitle">{thread.title}</span>
             <i
               className="fa-solid fa-trash"
               onClick={(e) => {
-                e.stopPropagation(); //stop event bubbling
+                e.stopPropagation();
                 deleteThread(thread.threadId);
               }}
-            ></i>
+            />
           </li>
         ))}
+        
+        {/* Simple pagination load more trigger */}
+        {filteredThreads.length > visibleCount && (
+          <button 
+            onClick={() => setVisibleCount(prev => prev + 15)} 
+            className="loadMoreBtn"
+          >
+            Load Older Chats
+          </button>
+        )}
       </ul>
 
       <div className="sign">
