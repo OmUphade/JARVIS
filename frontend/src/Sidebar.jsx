@@ -18,7 +18,10 @@ function Sidebar() {
   const [searchQuery, setSearchQuery] = useState("");
   const [visibleCount, setVisibleCount] = useState(15); // Simple pagination state
 
-  const API_URL = import.meta.env.VITE_API_URL || "http://localhost:8080/api/v1";
+  let API_URL = import.meta.env.VITE_API_URL || "http://localhost:8080/api/v1";
+  if (API_URL && !API_URL.includes("/api/v1")) {
+    API_URL = `${API_URL.replace(/\/$/, "")}/api/v1`;
+  }
 
   const getAllThreads = async () => {
     try {

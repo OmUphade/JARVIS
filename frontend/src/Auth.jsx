@@ -9,7 +9,10 @@ function Auth({ onAuthSuccess }) {
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
 
-  const API_URL = import.meta.env.VITE_API_URL || "http://localhost:8080/api/v1";
+  let API_URL = import.meta.env.VITE_API_URL || "http://localhost:8080/api/v1";
+  if (API_URL && !API_URL.includes("/api/v1")) {
+    API_URL = `${API_URL.replace(/\/$/, "")}/api/v1`;
+  }
 
   const handleSubmit = async (e) => {
     e.preventDefault();

@@ -18,7 +18,10 @@ function ChatWindow() {
   const [isOpen, setIsOpen] = useState(false);
   const [selectedFiles, setSelectedFiles] = useState([]);
 
-  const API_URL = import.meta.env.VITE_API_URL || "http://localhost:8080/api/v1";
+  let API_URL = import.meta.env.VITE_API_URL || "http://localhost:8080/api/v1";
+  if (API_URL && !API_URL.includes("/api/v1")) {
+    API_URL = `${API_URL.replace(/\/$/, "")}/api/v1`;
+  }
 
   const handleFileChange = (e) => {
     if (e.target.files) {
