@@ -10,8 +10,8 @@ import logger from "./utils/logger.js";
 import { sendSuccess, sendError } from "./utils/response.js";
 import ChatRoutes from "./routes/chat.js";
 import AuthRoutes from "./routes/auth.js";
-import taskQueue from "./queues/taskQueue.js";
-import "./workers/taskWorker.js"; // Initialize background worker
+import Thread from "./models/Thread.js";
+import Message from "./models/Message.js";
 
 const app = express();
 
@@ -25,9 +25,28 @@ const connectDB = async () => {
   }
 };
 
-connectDB().then(() => {
-  // Trigger soft delete cleanup task on startup
-  taskQueue.add("cleanup-soft-deleted", {});
+connectDB().then(async () => {
+  // Trigger soft delete database cleanup task directly on startup
+  try {
+    const thirtyDaysAgo = new Date();
+    thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+
+    const threadsRes = await Thread.deleteMany({
+      isDeleted: true,
+      deletedAt: { $lte: thirtyDaysAgo },
+    });
+
+    const messagesRes = await Message.deleteMany({
+      isDeleted: true,
+      deletedAt: { $lte: thirtyDaysAgo },
+    });
+
+    if (threadsRes.deletedCount > 0 || messagesRes.deletedCount > 0) {
+      logger.info(`[Cleanup Task] Cleaned up ${threadsRes.deletedCount} threads and ${messagesRes.deletedCount} messages.`);
+    }
+  } catch (error) {
+    logger.error(`Database cleanup task failed: ${error.message}`);
+  }
 });
 
 // Security Middlewares

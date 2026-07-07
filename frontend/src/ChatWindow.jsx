@@ -76,7 +76,16 @@ function ChatWindow() {
       });
 
       if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
+        let errMsg = `HTTP error! status: ${response.status}`;
+        try {
+          const errData = await response.json();
+          if (errData?.error?.message) {
+            errMsg = errData.error.message;
+          }
+        } catch (_) {
+          // Ignore if body is not JSON
+        }
+        throw new Error(errMsg);
       }
 
       setLoading(false); // Disable spinner once stream begins
@@ -124,14 +133,17 @@ function ChatWindow() {
       console.error("Streaming error:", err);
       setLoading(false);
       const isFetchError = err.message === "Failed to fetch" || err.message.toLowerCase().includes("fetch");
-      const errorMsg = isFetchError
-        ? "⚠️ Connection to the server failed. The server might be waking up from sleep mode (Render free tier servers sleep after inactivity). Please try sending your message again in 15-30 seconds."
-        : "⚠️ Sorry, I couldn't connect to the backend server. Please check if your backend and database are running properly.";
+      
+      let errorMsg = err.message;
+      if (isFetchError) {
+        errorMsg = "Connection to the server failed. The server might be waking up from sleep mode (Render free tier servers sleep after inactivity). Please try sending your message again in 15-30 seconds.";
+      }
+      
       setPrevChats((prev) => [
         ...prev,
         {
           role: "assistant",
-          content: errorMsg
+          content: errorMsg.startsWith("⚠️") ? errorMsg : `⚠️ ${errorMsg}`
         }
       ]);
       setStreamingReply("");
