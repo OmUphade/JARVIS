@@ -19,6 +19,29 @@ function ChatWindow() {
   const [isOpen, setIsOpen] = useState(false);
   const [selectedFiles, setSelectedFiles] = useState([]);
 
+  // Base64 JWT parser helper
+  const parseJwt = (token) => {
+    try {
+      const base64Url = token.split(".")[1];
+      const base64 = base64Url.replace(/-/g, "+").replace(/_/g, "/");
+      const jsonPayload = decodeURIComponent(
+        window
+          .atob(base64)
+          .split("")
+          .map((c) => "%" + ("00" + c.charCodeAt(0).toString(16)).slice(-2))
+          .join("")
+      );
+      return JSON.parse(jsonPayload);
+    } catch (e) {
+      return null;
+    }
+  };
+
+  const token = localStorage.getItem("accessToken");
+  const decoded = token ? parseJwt(token) : null;
+  const isGuestUser = decoded?.role === "guest" || localStorage.getItem("isGuest") === "true";
+  const userEmail = decoded?.email || (isGuestUser ? "Temporary Guest" : "user@jarvis.local");
+
   const handleFileChange = (e) => {
     if (e.target.files) {
       const filesArray = Array.from(e.target.files);
@@ -129,6 +152,18 @@ function ChatWindow() {
       let errorMsg = err.message;
       if (isFetchError) {
         errorMsg = "Connection to the server failed. The server might be waking up from sleep mode (Render free tier servers sleep after inactivity). Please try sending your message again in 15-30 seconds.";
+      } else {
+        // User-friendly error message mapping
+        const msgLower = errorMsg.toLowerCase();
+        if (msgLower.includes("quota") || msgLower.includes("429") || msgLower.includes("rate limit") || msgLower.includes("rate_limit")) {
+          errorMsg = "Gemini API Quota Exceeded: The free tier request limit has been reached. Please wait a few minutes before trying again or configure a billing plan.";
+        } else if (msgLower.includes("api key") || msgLower.includes("api_key") || msgLower.includes("invalid key")) {
+          errorMsg = "Invalid API Key: The Gemini developer key configuration on the server is invalid. Please check your credentials.";
+        } else if (msgLower.includes("bad request") || msgLower.includes("400")) {
+          errorMsg = "Bad Request: The AI service could not interpret this request format. Try rephrasing your prompt.";
+        } else {
+          errorMsg = errorMsg.replace(/^Error:\s*/i, "");
+        }
       }
       
       setPrevChats((prev) => [
@@ -155,6 +190,19 @@ function ChatWindow() {
       console.error("Logout failed:", err);
     }
     localStorage.removeItem("accessToken");
+    localStorage.removeItem("isGuest");
+    localStorage.removeItem("guestUserId");
+    window.location.reload();
+  };
+
+  const handleUpgrade = () => {
+    const guestId = localStorage.getItem("guestUserId");
+    if (guestId) {
+      localStorage.setItem("upgradeGuestId", guestId);
+    }
+    localStorage.removeItem("accessToken");
+    localStorage.removeItem("isGuest");
+    localStorage.removeItem("guestUserId");
     window.location.reload();
   };
 
@@ -166,15 +214,36 @@ function ChatWindow() {
         </span>
         <div className="userIconDiv" onClick={handleProfileClick}>
           <span className="userIcon">
-            <i className="fa-solid fa-user"></i>
+            <i className={isGuestUser ? "fa-solid fa-user-secret" : "fa-solid fa-user"}></i>
           </span>
         </div>
       </div>
 
       {isOpen && (
-        <div className="dropDown">
-          <div className="dropDownItem" onClick={handleLogout}>
-            <i className="fa-solid fa-arrow-right-from-bracket"></i> Log out
+        <div className="profileDropdownCard">
+          <div className="profileHeader">
+            <div className="profileAvatar">
+              <i className={isGuestUser ? "fa-solid fa-user-secret" : "fa-solid fa-user"}></i>
+            </div>
+            <div className="profileInfo">
+              <p className="profileEmail" title={userEmail}>{userEmail}</p>
+              <span className={`profileRoleBadge ${isGuestUser ? 'guestRole' : 'memberRole'}`}>
+                {isGuestUser ? 'Guest Session' : 'Member Account'}
+              </span>
+            </div>
+          </div>
+
+          <div className="profileDivider"></div>
+
+          <div className="profileActions">
+            {isGuestUser && (
+              <button onClick={handleUpgrade} className="profileUpgradeBtn">
+                <i className="fa-solid fa-cloud-arrow-up"></i> Sign Up to Save Chats
+              </button>
+            )}
+            <button onClick={handleLogout} className="profileLogoutBtn">
+              <i className="fa-solid fa-right-from-bracket"></i> {isGuestUser ? "End Session" : "Log Out"}
+            </button>
           </div>
         </div>
       )}

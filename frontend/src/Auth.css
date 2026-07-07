@@ -165,3 +165,28 @@
   opacity: 0.6;
   cursor: not-allowed;
 }
+
+.cancelGuestButton {
+  width: 100%;
+  padding: 10px;
+  border: 1px solid rgba(239, 68, 68, 0.3);
+  border-radius: var(--radius-md);
+  background: rgba(239, 68, 68, 0.05);
+  color: #f87171;
+  font-size: 0.9rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  margin-top: 10px;
+}
+
+.cancelGuestButton:hover:not(:disabled) {
+  background: rgba(239, 68, 68, 0.15);
+  border-color: rgba(239, 68, 68, 0.5);
+  color: #ef4444;
+}
+
+.cancelGuestButton:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}

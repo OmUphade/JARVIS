@@ -9,6 +9,7 @@ function Auth({ onAuthSuccess }) {
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
+  const [isUpgrading, setIsUpgrading] = useState(false);
 
   let API_URL = import.meta.env.VITE_API_URL || "http://127.0.0.1:8080/api/v1";
   if (API_URL && !API_URL.includes("/api/v1")) {
@@ -17,8 +18,9 @@ function Auth({ onAuthSuccess }) {
 
   // If upgrading from a guest session, default to registration form
   useEffect(() => {
-    const isUpgrading = localStorage.getItem("upgradeGuestId");
-    if (isUpgrading) {
+    const isUpgradingGuest = localStorage.getItem("upgradeGuestId");
+    if (isUpgradingGuest) {
+      setIsUpgrading(true);
       setIsLogin(false);
     }
   }, []);
@@ -97,6 +99,17 @@ function Auth({ onAuthSuccess }) {
     }
   };
 
+  const handleCancelUpgrade = () => {
+    const upgradeToken = localStorage.getItem("upgradeGuestId");
+    if (upgradeToken) {
+      localStorage.setItem("accessToken", upgradeToken);
+      localStorage.setItem("isGuest", "true");
+      localStorage.setItem("guestUserId", upgradeToken);
+      localStorage.removeItem("upgradeGuestId");
+      window.location.reload(); // Reload to return to chat session
+    }
+  };
+
   return (
     <div className="authContainer">
       <div className="authCard">
@@ -154,14 +167,25 @@ function Auth({ onAuthSuccess }) {
             {loading ? "Processing..." : isLogin ? "Log In" : "Sign Up"}
           </button>
 
-          {isLogin && (
+          {/* Guest login is rendered on both screens so it is always accessible */}
+          <button
+            type="button"
+            className="guestButton"
+            onClick={handleGuestLogin}
+            disabled={loading}
+          >
+            {loading ? "Processing..." : "Continue as Guest"}
+          </button>
+
+          {/* Cancel & Go Back option if user stashed a guest session */}
+          {isUpgrading && (
             <button
               type="button"
-              className="guestButton"
-              onClick={handleGuestLogin}
+              className="cancelGuestButton"
+              onClick={handleCancelUpgrade}
               disabled={loading}
             >
-              {loading ? "Processing..." : "Continue as Guest"}
+              Cancel & Return to Chat
             </button>
           )}
         </form>
