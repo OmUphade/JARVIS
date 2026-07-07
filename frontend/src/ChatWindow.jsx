@@ -124,7 +124,7 @@ function ChatWindow() {
     } catch (err) {
       console.error("Streaming error:", err);
       setLoading(false);
-      const isFetchError = err.message === "Failed to fetch" || err.message.toLowerCase().includes("fetch");
+      const isFetchError = err.message === "Failed to fetch" || err.message === "NetworkError when attempting to fetch resource.";
       
       let errorMsg = err.message;
       if (isFetchError) {

@@ -18,7 +18,7 @@ function App() {
 
   // Resilient, auto-refreshing fetch wrapper
   const authenticatedFetch = async (url, options = {}) => {
-    let API_URL = import.meta.env.VITE_API_URL || "http://localhost:8080/api/v1";
+    let API_URL = import.meta.env.VITE_API_URL || "http://127.0.0.1:8080/api/v1";
     if (API_URL && !API_URL.includes("/api/v1")) {
       API_URL = `${API_URL.replace(/\/$/, "")}/api/v1`;
     }

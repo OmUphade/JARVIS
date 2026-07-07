@@ -1,7 +1,7 @@
 import express from "express";
 import mongoose from "mongoose";
-import User from "../models/User";
-import Thread from "../models/Thread";
+import User from "../models/User.js";
+import Thread from "../models/Thread.js";
 import {
   hashPassword,
   comparePassword,

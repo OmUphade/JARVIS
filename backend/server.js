@@ -153,6 +153,6 @@ app.use((err, req, res, next) => {
   return sendError(res, "An unexpected error occurred on the server.", "INTERNAL_SERVER_ERROR", 500);
 });
 
-app.listen(config.port, () => {
+app.listen(config.port, "0.0.0.0", () => {
   logger.info(`Server running in ${config.nodeEnv} mode on port ${config.port}`);
 });
