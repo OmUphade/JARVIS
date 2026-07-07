@@ -13,15 +13,11 @@ function ChatWindow() {
     setNewChat,
     streamingReply,
     setStreamingReply,
+    authenticatedFetch,
   } = useContext(MyContext);
   const [loading, setLoading] = useState(false);
   const [isOpen, setIsOpen] = useState(false);
   const [selectedFiles, setSelectedFiles] = useState([]);
-
-  let API_URL = import.meta.env.VITE_API_URL || "http://localhost:8080/api/v1";
-  if (API_URL && !API_URL.includes("/api/v1")) {
-    API_URL = `${API_URL.replace(/\/$/, "")}/api/v1`;
-  }
 
   const handleFileChange = (e) => {
     if (e.target.files) {
@@ -49,11 +45,10 @@ function ChatWindow() {
     const attachmentsPreview = filesToSend.map(file => ({
       fileName: file.name,
       mimeType: file.type,
-      fileUrl: URL.createObjectURL(file), // Local temporary preview object URL
-      sizeBytes: file.size
+      fileUrl: URL.createObjectURL(file), // temporary URL for local preview
     }));
 
-    // Append user message immediately to the UI chat
+    // Render user message immediately
     setPrevChats((prev) => [
       ...prev,
       { role: "user", content: userPrompt, attachments: attachmentsPreview }
@@ -67,11 +62,8 @@ function ChatWindow() {
     });
 
     try {
-      const response = await fetch(`${API_URL}/chat/stream`, {
+      const response = await authenticatedFetch("/chat/stream", {
         method: "POST",
-        headers: {
-          Authorization: `Bearer ${localStorage.getItem("accessToken")}`
-        },
         body: formData,
       });
 
@@ -156,7 +148,7 @@ function ChatWindow() {
 
   const handleLogout = async () => {
     try {
-      await fetch(`${API_URL}/auth/logout`, {
+      await authenticatedFetch("/auth/logout", {
         method: "POST",
       });
     } catch (err) {
@@ -178,38 +170,39 @@ function ChatWindow() {
           </span>
         </div>
       </div>
+
       {isOpen && (
-        <div className="dropDown">
-          <div className="dropDownItem">
-            <i className="fa-solid fa-gear"></i> Settings
-          </div>
-          <div className="dropDownItem">
-            <i className="fa-solid fa-cloud-arrow-up"></i> Upgrade plan
-          </div>
-          <div className="dropDownItem" onClick={handleLogout}>
-            <i className="fa-solid fa-arrow-right-from-bracket"></i> Log out
-          </div>
+        <div className="profileDropdown">
+          <button onClick={handleLogout} className="logoutBtn">
+            <i className="fa-solid fa-right-from-bracket"></i> Log Out
+          </button>
         </div>
       )}
-      
-      <Chat></Chat>
 
-      <ScaleLoader color="#fff" loading={loading}></ScaleLoader>
+      {/* Render chats here */}
+      <Chat />
 
-      <div className="chatInput">
+      {/* Input section */}
+      <div className="bottom">
         {selectedFiles.length > 0 && (
           <div className="filePreviews">
             {selectedFiles.map((file, idx) => (
               <div key={idx} className="previewItem">
-                <i className="fa-solid fa-file-arrow-up fileIcon"></i>
-                <span className="previewName">{file.name}</span>
-                <i className="fa-solid fa-xmark removeFile" onClick={() => removeFile(idx)}></i>
+                <i className="fa-solid fa-file fileIcon"></i>
+                <span className="previewName" title={file.name}>
+                  {file.name}
+                </span>
+                <i
+                  className="fa-solid fa-xmark removeFile"
+                  onClick={() => removeFile(idx)}
+                ></i>
               </div>
             ))}
           </div>
         )}
 
-        <div className="inputBox">
+        <div className="input-container">
+          {/* File selector input */}
           <label htmlFor="file-upload" className="clipIcon">
             <i className="fa-solid fa-paperclip"></i>
           </label>
@@ -217,23 +210,30 @@ function ChatWindow() {
             id="file-upload"
             type="file"
             multiple
-            style={{ display: "none" }}
             onChange={handleFileChange}
+            style={{ display: "none" }}
           />
+
           <input
-            placeholder="Ask anything (image, audio, video)..."
+            type="text"
+            placeholder="Ask JARVIS..."
             value={prompt}
             onChange={(e) => setPrompt(e.target.value)}
-            onKeyDown={(e) => (e.key === "Enter" ? getReply() : "")}
+            onKeyDown={(e) => {
+              if (e.key === "Enter") getReply();
+            }}
           />
-          <div id="submit" onClick={getReply}>
-            <i className="fa-solid fa-paper-plane"></i>
-          </div>
+
+          {loading ? (
+            <div className="loader">
+              <ScaleLoader color="#e2e8f0" height={15} width={2} margin={1} />
+            </div>
+          ) : (
+            <button onClick={getReply} className="submitBtn">
+              <i className="fa-solid fa-arrow-up"></i>
+            </button>
+          )}
         </div>
-        <p className="info">
-          JARVIS can make mistakes. Check important info. See Cookie
-          Preferences.
-        </p>
       </div>
     </div>
   );

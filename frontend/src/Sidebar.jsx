@@ -2,6 +2,7 @@ import "./Sidebar.css";
 import { useContext, useEffect, useState } from "react";
 import { MyContext } from "./MyContext.jsx";
 import { v1 as uuidv1 } from "uuid";
+import logo from "./assets/jarvis6.png";
 
 function Sidebar() {
   const {
@@ -13,23 +14,15 @@ function Sidebar() {
     setReply,
     setCurrThreadId,
     setPrevChats,
+    authenticatedFetch,
   } = useContext(MyContext);
 
   const [searchQuery, setSearchQuery] = useState("");
   const [visibleCount, setVisibleCount] = useState(15); // Simple pagination state
 
-  let API_URL = import.meta.env.VITE_API_URL || "http://localhost:8080/api/v1";
-  if (API_URL && !API_URL.includes("/api/v1")) {
-    API_URL = `${API_URL.replace(/\/$/, "")}/api/v1`;
-  }
-
   const getAllThreads = async () => {
     try {
-      const response = await fetch(`${API_URL}/thread`, {
-        headers: {
-          Authorization: `Bearer ${localStorage.getItem("accessToken")}`,
-        },
-      });
+      const response = await authenticatedFetch("/thread");
       const res = await response.json();
       const filteredData = res.data.map((thread) => ({
         threadId: thread.threadId,
@@ -57,14 +50,7 @@ function Sidebar() {
     setCurrThreadId(newThreadId);
 
     try {
-      const response = await fetch(
-        `${API_URL}/thread/${newThreadId}`,
-        {
-          headers: {
-            Authorization: `Bearer ${localStorage.getItem("accessToken")}`,
-          },
-        }
-      );
+      const response = await authenticatedFetch(`/thread/${newThreadId}`);
       const res = await response.json();
       console.log(res);
       setPrevChats(res.data);
@@ -77,15 +63,9 @@ function Sidebar() {
 
   const deleteThread = async (threadId) => {
     try {
-      const response = await fetch(
-        `${API_URL}/thread/${threadId}`,
-        {
-          method: "DELETE",
-          headers: {
-            Authorization: `Bearer ${localStorage.getItem("accessToken")}`,
-          },
-        }
-      );
+      const response = await authenticatedFetch(`/thread/${threadId}`, {
+        method: "DELETE",
+      });
       const res = await response.json();
       console.log(res);
 
@@ -113,7 +93,7 @@ function Sidebar() {
     <section className="sidebar">
       <button onClick={createNewChat}>
         <img
-          src="src/assets/jarvis6.png"
+          src={logo}
           alt="Jarvis logo"
           className="logo"
         />

@@ -1,5 +1,6 @@
 import React, { useState } from "react";
 import "./Auth.css";
+import logo from "./assets/jarvis6.png";
 
 function Auth({ onAuthSuccess }) {
   const [isLogin, setIsLogin] = useState(true);
@@ -69,7 +70,7 @@ function Auth({ onAuthSuccess }) {
     <div className="authContainer">
       <div className="authCard">
         <div className="authLogo">
-          <img src="src/assets/jarvis6.png" alt="Jarvis logo" />
+          <img src={logo} alt="Jarvis logo" />
         </div>
         <h2>{isLogin ? "Welcome Back" : "Create Account"}</h2>
         <p className="authSubtitle">
