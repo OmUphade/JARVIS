@@ -120,11 +120,15 @@ function ChatWindow() {
     } catch (err) {
       console.error("Streaming error:", err);
       setLoading(false);
+      const isFetchError = err.message === "Failed to fetch" || err.message.toLowerCase().includes("fetch");
+      const errorMsg = isFetchError
+        ? "⚠️ Connection to the server failed. The server might be waking up from sleep mode (Render free tier servers sleep after inactivity). Please try sending your message again in 15-30 seconds."
+        : "⚠️ Sorry, I couldn't connect to the backend server. Please check if your backend and database are running properly.";
       setPrevChats((prev) => [
         ...prev,
         {
           role: "assistant",
-          content: "⚠️ Sorry, I couldn't connect to the backend server. Please check if your backend and database are running properly."
+          content: errorMsg
         }
       ]);
       setStreamingReply("");

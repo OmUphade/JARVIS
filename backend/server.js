@@ -105,6 +105,15 @@ const swaggerSpec = swaggerJSDoc(swaggerOptions);
 app.use("/api/v1/docs", swaggerUi.serve, swaggerUi.setup(swaggerSpec));
 
 // Version 1 Routes
+app.get("/", (req, res) => {
+  res.json({
+    success: true,
+    message: "Welcome to the JARVIS API.",
+    documentation: "/api/v1/docs",
+    health: "/api/v1/health"
+  });
+});
+
 app.use("/api/v1/auth", AuthRoutes);
 app.use("/api/v1", ChatRoutes);
 

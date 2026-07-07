@@ -52,7 +52,11 @@ function Auth({ onAuthSuccess }) {
         setError("Account created! Please log in.");
       }
     } catch (err) {
-      setError(err.message);
+      if (err.message === "Failed to fetch" || err.message.toLowerCase().includes("fetch")) {
+        setError("⚠️ The server is waking up (Render servers sleep after 15m of inactivity). Please wait 30-45 seconds and click Submit again.");
+      } else {
+        setError(err.message);
+      }
     } finally {
       setLoading(false);
     }
