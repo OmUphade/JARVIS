@@ -140,3 +140,28 @@
   color: var(--accent-hover);
   text-decoration: underline;
 }
+
+.guestButton {
+  width: 100%;
+  padding: 12px;
+  border: 1px dashed var(--border-light);
+  border-radius: var(--radius-md);
+  background: transparent;
+  color: var(--text-secondary);
+  font-size: 0.95rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  margin-top: 12px;
+}
+
+.guestButton:hover:not(:disabled) {
+  background: var(--glass-hover);
+  color: var(--text-primary);
+  border-color: var(--border);
+}
+
+.guestButton:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}

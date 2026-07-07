@@ -1,5 +1,7 @@
 import express from "express";
-import User from "../models/User.js";
+import mongoose from "mongoose";
+import User from "../models/User";
+import Thread from "../models/Thread";
 import {
   hashPassword,
   comparePassword,
@@ -22,6 +24,47 @@ const getCookieOptions = (isProduction) => ({
 
 /**
  * @openapi
+ * /auth/guest:
+ *   post:
+ *     summary: Log in as a temporary guest user
+ *     tags: [Authentication]
+ *     responses:
+ *       200:
+ *         description: Guest access session created.
+ */
+router.post("/guest", (req, res) => {
+  try {
+    const guestId = new mongoose.Types.ObjectId().toString();
+    const guestUser = {
+      _id: guestId,
+      email: `guest_${guestId}@jarvis.local`,
+      role: "guest",
+    };
+
+    const accessToken = generateAccessToken(guestUser);
+    const refreshToken = generateRefreshToken(guestUser);
+
+    const isProduction = process.env.NODE_ENV === "production";
+    res.cookie("refreshToken", refreshToken, getCookieOptions(isProduction));
+
+    logger.info(`Guest session initiated: ${guestId}`);
+    return sendSuccess(res, {
+      accessToken,
+      user: {
+        id: guestId,
+        name: "Guest",
+        email: guestUser.email,
+        role: "guest",
+      },
+    });
+  } catch (error) {
+    logger.error(`Guest session creation failed: ${error.message}`);
+    return sendError(res, "Guest session failed", "GUEST_SESSION_FAILED", 500);
+  }
+});
+
+/**
+ * @openapi
  * /auth/register:
  *   post:
  *     summary: Register a new user profile
@@ -39,23 +82,18 @@ const getCookieOptions = (isProduction) => ({
  *             properties:
  *               name:
  *                 type: string
- *                 example: Jane Doe
  *               email:
  *                 type: string
- *                 example: jane@example.com
  *               password:
  *                 type: string
- *                 example: securePassword123
+ *               guestUserId:
+ *                 type: string
  *     responses:
  *       201:
  *         description: User profile created successfully.
- *       400:
- *         description: Validation error.
- *       409:
- *         description: Email already in use.
  */
 router.post("/register", async (req, res) => {
-  const { name, email, password } = req.body;
+  const { name, email, password, guestUserId } = req.body;
 
   if (!name || !email || !password) {
     return sendError(res, "Missing required fields (name, email, password)", "VALIDATION_ERROR", 400);
@@ -72,18 +110,39 @@ router.post("/register", async (req, res) => {
       name,
       email,
       passwordHash,
-      isVerified: true, // Auto verify for now; we can add email verification later
+      isVerified: true,
     });
 
     await user.save();
     logger.info(`User registered successfully: ${user.email}`);
 
-    // Standard Success Response
+    // History Migration: Link guest threads to the new registered user account
+    if (guestUserId) {
+      try {
+        const guestObjId = new mongoose.Types.ObjectId(guestUserId);
+        const updateRes = await Thread.updateMany(
+          { userId: guestObjId },
+          { userId: user._id }
+        );
+        logger.info(`Migrated ${updateRes.modifiedCount} threads from guest ${guestUserId} to registered user ${user._id}`);
+      } catch (err) {
+        logger.error(`History migration failed for guest ${guestUserId}: ${err.message}`);
+      }
+    }
+
+    // Auto log in user on registration
+    const accessToken = generateAccessToken(user);
+    const refreshToken = generateRefreshToken(user);
+    const isProduction = process.env.NODE_ENV === "production";
+    res.cookie("refreshToken", refreshToken, getCookieOptions(isProduction));
+
     return sendSuccess(res, {
+      accessToken,
       user: {
         id: user._id,
         name: user.name,
         email: user.email,
+        role: user.role,
       },
     }, 201);
   } catch (error) {
@@ -110,18 +169,16 @@ router.post("/register", async (req, res) => {
  *             properties:
  *               email:
  *                 type: string
- *                 example: jane@example.com
  *               password:
  *                 type: string
- *                 example: securePassword123
+ *               guestUserId:
+ *                 type: string
  *     responses:
  *       200:
- *         description: Login successful. Sets cookie with refresh token and returns access token.
- *       401:
- *         description: Invalid credentials.
+ *         description: Login successful.
  */
 router.post("/login", async (req, res) => {
-  const { email, password } = req.body;
+  const { email, password, guestUserId } = req.body;
 
   if (!email || !password) {
     return sendError(res, "Missing email or password", "VALIDATION_ERROR", 400);
@@ -136,6 +193,20 @@ router.post("/login", async (req, res) => {
     const isMatch = await comparePassword(password, user.passwordHash);
     if (!isMatch) {
       return sendError(res, "Invalid email or password", "INVALID_CREDENTIALS", 401);
+    }
+
+    // History Migration: Link guest threads to the logged in user
+    if (guestUserId) {
+      try {
+        const guestObjId = new mongoose.Types.ObjectId(guestUserId);
+        const updateRes = await Thread.updateMany(
+          { userId: guestObjId },
+          { userId: user._id }
+        );
+        logger.info(`Migrated ${updateRes.modifiedCount} threads from guest ${guestUserId} to logged in user ${user._id}`);
+      } catch (err) {
+        logger.error(`History migration failed for guest ${guestUserId}: ${err.message}`);
+      }
     }
 
     const accessToken = generateAccessToken(user);
@@ -174,7 +245,6 @@ router.post("/login", async (req, res) => {
  */
 router.post("/logout", (req, res) => {
   try {
-    // Clear cookies
     res.clearCookie("refreshToken", {
       httpOnly: true,
       sameSite: "strict",
@@ -195,9 +265,7 @@ router.post("/logout", (req, res) => {
  *     tags: [Authentication]
  *     responses:
  *       200:
- *         description: Returns new access token and resets refresh cookie.
- *       401:
- *         description: Refresh token invalid or expired.
+ *         description: Returns new access token.
  */
 router.post("/refresh", async (req, res) => {
   try {
@@ -206,14 +274,18 @@ router.post("/refresh", async (req, res) => {
       return sendError(res, "Refresh token is missing", "REFRESH_TOKEN_MISSING", 401);
     }
 
-    // Verify Refresh Token
     const decoded = verifyRefreshToken(refreshToken);
-    const user = await User.findOne({ _id: decoded.id, isDeleted: false });
+    let user = await User.findOne({ _id: decoded.id, isDeleted: false });
+
+    // Fallback support for guest session token refreshes
     if (!user) {
-      return sendError(res, "User not found or suspended", "USER_NOT_FOUND", 401);
+      user = {
+        _id: decoded.id,
+        email: `guest_${decoded.id}@jarvis.local`,
+        role: "guest",
+      };
     }
 
-    // Generate new Access and Refresh tokens (token rotation)
     const newAccessToken = generateAccessToken(user);
     const newRefreshToken = generateRefreshToken(user);
 
@@ -225,7 +297,7 @@ router.post("/refresh", async (req, res) => {
     });
   } catch (error) {
     logger.error(`Token refresh error: ${error.message}`);
-    return sendError(res, "Session expired or invalid refresh token. Please login again.", "REFRESH_FAILED", 401);
+    return sendError(res, "Session expired. Please login again.", "REFRESH_FAILED", 401);
   }
 });
 

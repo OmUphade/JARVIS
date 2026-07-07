@@ -41,11 +41,11 @@ function ChatWindow() {
     setNewChat(false);
     setLoading(true);
 
-    // Create attachments metadata array for user message rendering immediately
+    // Create attachments preview
     const attachmentsPreview = filesToSend.map(file => ({
       fileName: file.name,
       mimeType: file.type,
-      fileUrl: URL.createObjectURL(file), // temporary URL for local preview
+      fileUrl: URL.createObjectURL(file),
     }));
 
     // Render user message immediately
@@ -172,10 +172,10 @@ function ChatWindow() {
       </div>
 
       {isOpen && (
-        <div className="profileDropdown">
-          <button onClick={handleLogout} className="logoutBtn">
-            <i className="fa-solid fa-right-from-bracket"></i> Log Out
-          </button>
+        <div className="dropDown">
+          <div className="dropDownItem" onClick={handleLogout}>
+            <i className="fa-solid fa-arrow-right-from-bracket"></i> Log out
+          </div>
         </div>
       )}
 
@@ -183,7 +183,7 @@ function ChatWindow() {
       <Chat />
 
       {/* Input section */}
-      <div className="bottom">
+      <div className="chatInput">
         {selectedFiles.length > 0 && (
           <div className="filePreviews">
             {selectedFiles.map((file, idx) => (
@@ -201,7 +201,7 @@ function ChatWindow() {
           </div>
         )}
 
-        <div className="input-container">
+        <div className="inputBox">
           {/* File selector input */}
           <label htmlFor="file-upload" className="clipIcon">
             <i className="fa-solid fa-paperclip"></i>
@@ -225,15 +225,18 @@ function ChatWindow() {
           />
 
           {loading ? (
-            <div className="loader">
+            <div id="submit" style={{ cursor: "default" }}>
               <ScaleLoader color="#e2e8f0" height={15} width={2} margin={1} />
             </div>
           ) : (
-            <button onClick={getReply} className="submitBtn">
+            <div id="submit" onClick={getReply}>
               <i className="fa-solid fa-arrow-up"></i>
-            </button>
+            </div>
           )}
         </div>
+        <p className="info">
+          JARVIS can make mistakes. Check important info.
+        </p>
       </div>
     </div>
   );

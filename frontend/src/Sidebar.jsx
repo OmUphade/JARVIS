@@ -81,6 +81,17 @@ function Sidebar() {
     }
   };
 
+  const handleUpgradeClick = () => {
+    const guestId = localStorage.getItem("guestUserId");
+    if (guestId) {
+      localStorage.setItem("upgradeGuestId", guestId);
+    }
+    localStorage.removeItem("accessToken");
+    localStorage.removeItem("isGuest");
+    localStorage.removeItem("guestUserId");
+    window.location.reload();
+  };
+
   // Local thread search filter
   const filteredThreads = allThreads?.filter((thread) =>
     thread.title.toLowerCase().includes(searchQuery.toLowerCase())
@@ -113,6 +124,16 @@ function Sidebar() {
           className="sidebarSearchInput"
         />
       </div>
+
+      {localStorage.getItem("isGuest") === "true" && (
+        <div className="guestUpgradeBanner" onClick={handleUpgradeClick}>
+          <i className="fa-solid fa-cloud-arrow-up upgradeIcon"></i>
+          <div className="upgradeText">
+            <h4>Save History</h4>
+            <p>Create account to keep chats</p>
+          </div>
+        </div>
+      )}
 
       <ul className="history">
         {paginatedThreads.map((thread, idx) => (

@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import "./Auth.css";
 import logo from "./assets/jarvis6.png";
 
@@ -15,6 +15,14 @@ function Auth({ onAuthSuccess }) {
     API_URL = `${API_URL.replace(/\/$/, "")}/api/v1`;
   }
 
+  // If upgrading from a guest session, default to registration form
+  useEffect(() => {
+    const isUpgrading = localStorage.getItem("upgradeGuestId");
+    if (isUpgrading) {
+      setIsLogin(false);
+    }
+  }, []);
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError("");
@@ -24,9 +32,11 @@ function Auth({ onAuthSuccess }) {
       ? `${API_URL}/auth/login`
       : `${API_URL}/auth/register`;
 
+    const guestUserId = localStorage.getItem("upgradeGuestId") || localStorage.getItem("guestUserId");
+
     const payload = isLogin
-      ? { email, password }
-      : { name, email, password };
+      ? { email, password, guestUserId }
+      : { name, email, password, guestUserId };
 
     try {
       const response = await fetch(url, {
@@ -43,17 +53,14 @@ function Auth({ onAuthSuccess }) {
         throw new Error(res.error?.message || "Something went wrong.");
       }
 
-      if (isLogin) {
-        if (res.success && res.data.accessToken) {
-          localStorage.setItem("accessToken", res.data.accessToken);
-          onAuthSuccess(res.data.accessToken);
-        }
-      } else {
-        // Automatically switch to login after registration success
-        setIsLogin(true);
-        setName("");
-        setPassword("");
-        setError("Account created! Please log in.");
+      // Cleanup guest session storage flags on successful registered account login
+      localStorage.removeItem("upgradeGuestId");
+      localStorage.removeItem("isGuest");
+      localStorage.removeItem("guestUserId");
+
+      if (res.success && res.data.accessToken) {
+        localStorage.setItem("accessToken", res.data.accessToken);
+        onAuthSuccess(res.data.accessToken);
       }
     } catch (err) {
       if (err.message === "Failed to fetch" || err.message.toLowerCase().includes("fetch")) {
@@ -61,6 +68,30 @@ function Auth({ onAuthSuccess }) {
       } else {
         setError(err.message);
       }
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleGuestLogin = async () => {
+    setError("");
+    setLoading(true);
+    try {
+      const response = await fetch(`${API_URL}/auth/guest`, {
+        method: "POST",
+      });
+      const res = await response.json();
+      if (!response.ok) {
+        throw new Error(res.error?.message || "Guest session failed.");
+      }
+
+      localStorage.setItem("accessToken", res.data.accessToken);
+      localStorage.setItem("isGuest", "true");
+      localStorage.setItem("guestUserId", res.data.user.id);
+      
+      onAuthSuccess(res.data.accessToken);
+    } catch (err) {
+      setError(err.message);
     } finally {
       setLoading(false);
     }
@@ -78,7 +109,7 @@ function Auth({ onAuthSuccess }) {
         </p>
 
         {error && (
-          <div className={`authAlert ${error.includes("created") ? "success" : "error"}`}>
+          <div className={`authAlert ${error.includes("created") || error.includes("log in") ? "success" : "error"}`}>
             {error}
           </div>
         )}
@@ -122,6 +153,17 @@ function Auth({ onAuthSuccess }) {
           <button type="submit" className="authButton" disabled={loading}>
             {loading ? "Processing..." : isLogin ? "Log In" : "Sign Up"}
           </button>
+
+          {isLogin && (
+            <button
+              type="button"
+              className="guestButton"
+              onClick={handleGuestLogin}
+              disabled={loading}
+            >
+              {loading ? "Processing..." : "Continue as Guest"}
+            </button>
+          )}
         </form>
 
         <div className="authToggle">

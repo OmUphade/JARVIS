@@ -242,7 +242,7 @@ router.post("/chat", handleUpload, async (req, res) => {
     return sendSuccess(res, { reply: assistantReply });
   } catch (error) {
     logger.error(`Chat route failed for user ${req.user.id}: ${error.message}`);
-    return sendError(res, "Something went wrong processing your request.", "CHAT_PROCESSING_ERROR", 500);
+    return sendError(res, error.message || "Something went wrong processing your request.", "CHAT_PROCESSING_ERROR", 500);
   }
 });
 
@@ -354,7 +354,7 @@ router.post("/chat/stream", handleUpload, async (req, res) => {
       res.write(`data: ${JSON.stringify({ error: "Streaming disconnected unexpectedly." })}\n\n`);
       return res.end();
     }
-    return sendError(res, "Something went wrong in streaming your request.", "STREAM_PROCESSING_ERROR", 500);
+    return sendError(res, error.message || "Something went wrong in streaming your request.", "STREAM_PROCESSING_ERROR", 500);
   }
 });
 

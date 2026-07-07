@@ -173,3 +173,41 @@
   border-color: var(--border-light);
 }
 
+.guestUpgradeBanner {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin: 8px 16px;
+  padding: 12px;
+  background: linear-gradient(135deg, rgba(99, 102, 241, 0.15) 0%, rgba(168, 85, 247, 0.15) 100%);
+  border: 1px solid rgba(99, 102, 241, 0.3);
+  border-radius: var(--radius-md);
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.guestUpgradeBanner:hover {
+  transform: translateY(-1px);
+  background: linear-gradient(135deg, rgba(99, 102, 241, 0.25) 0%, rgba(168, 85, 247, 0.25) 100%);
+  border-color: rgba(99, 102, 241, 0.5);
+  box-shadow: 0 4px 12px rgba(99, 102, 241, 0.15);
+}
+
+.upgradeIcon {
+  font-size: 20px;
+  color: var(--accent);
+}
+
+.upgradeText h4 {
+  margin: 0;
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.upgradeText p {
+  margin: 2px 0 0 0;
+  font-size: 0.7rem;
+  color: var(--text-secondary);
+}
+
